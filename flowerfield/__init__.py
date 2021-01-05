@@ -1,7 +1,10 @@
 import json
 from weakref import ref
-from typing import Mapping, Sequence, List
+from typing import Mapping, Sequence, List, Callable, Optional
 from collections import abc
+
+
+__version__ = '0.2.0'
 
 
 class SchemaError(RuntimeError):
@@ -12,18 +15,23 @@ class FieldTypeError(SchemaError):
     pass
 
 
+class FieldValidationError(SchemaError):
+    pass
+
+
 class Field:
 
     __slots__ = (
-        'type', 'name', 'is_struct', 'owner'
+        'type', 'name', 'is_struct', 'owner', 'validator'
     )
 
-    def __init__(self, type=None):
-        self.type = type
-        if isinstance(type, tuple):
-            self.is_struct = any([issubclass(i, Scheme) for i in type])
-        else:
-            self.is_struct = issubclass(type, Scheme)
+    def __init__(self,
+                 *args,
+                 validator: Optional[Callable] = None
+                 ):
+        self.type = args
+        self.validator = validator
+        self.is_struct = any([issubclass(i, Scheme) for i in self.type])
         self.name = None
 
     def get_value(self, obj):
@@ -33,15 +41,24 @@ class Field:
         obj.__dict__[f'_field_{self.name}'] = value
 
     def get_struct(self, value):
-        if issubclass(self.type, Scheme):
-            return self.type
-        elif isinstance(self.type, tuple):
-            struct_map = {}
-            for i in self.type:
-                if not issubclass(i, Scheme):
-                    continue
-                struct_map[i.coverage(set(value.keys()))] = i
-            return struct_map[max(struct_map.keys())]
+        struct_map = {}
+        for i in self.type:
+            if not issubclass(i, Scheme):
+                continue
+            struct_map[i.coverage(set(value.keys()))] = i
+        return struct_map[max(struct_map.keys())]
+
+    def validate(self, obj):
+        if self.validator is not None:
+            try:
+                value = self.validator(self.get_value(obj))
+                self.set_value(obj, value)
+            except Exception:
+                raise FieldValidationError(
+                    f'Field {repr(self.name)} in strucutre {self.owner()} '
+                    'did not pass validation '
+                    f'with value {repr(self.get_value(obj))}'
+                    )
 
     def __get__(self, obj, cls=None):
         if obj is None:
@@ -51,7 +68,7 @@ class Field:
     def __set__(self, obj, value):
         if obj is None:
             return
-        if self.type is None:
+        if not self.type:
             self.set_value(obj, value)
         elif isinstance(value, self.type):
             self.set_value(obj, value)
@@ -63,6 +80,7 @@ class Field:
                 f'Scheme: {self.owner()}\n'
                 f'Given value: {repr(value)}'
                 )
+        self.validate(obj)
 
     def __set_name__(self, owner, name):
         self.name = name

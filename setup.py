@@ -1,3 +1,4 @@
+from flowerfield import __version__
 import setuptools
 
 with open('README.md', 'r') as file:
@@ -5,10 +6,11 @@ with open('README.md', 'r') as file:
 
 setuptools.setup(
     name='flowerfield',
-    version='0.1.0',
+    version=__version__,
     author='Crystal Melting Dot',
     author_email='stresspassing@gmail.com',
-    description='Tiny python module to automatically map dictionaries to python objects.',
+    description='Tiny python module to automatically'
+                'map dictionaries to python objects.',
     long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=[],
