@@ -4,7 +4,7 @@ from typing import Mapping, Sequence, List, Callable, Optional
 from collections import abc
 
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 
 class SchemaError(RuntimeError):
@@ -22,17 +22,20 @@ class FieldValidationError(SchemaError):
 class Field:
 
     __slots__ = (
-        'type', 'name', 'is_struct', 'owner', 'validator'
+        'type', 'name', 'is_struct',
+        'owner', 'validator', 'alias'
     )
 
     def __init__(self,
                  *args,
+                 alias: Optional[str] = None,
                  validator: Optional[Callable] = None
                  ):
         self.type = args
         self.validator = validator
         self.is_struct = any([issubclass(i, Scheme) for i in self.type])
         self.name = None
+        self.alias = alias
 
     def get_value(self, obj):
         return obj.__dict__.get(f'_field_{self.name}')
@@ -84,6 +87,8 @@ class Field:
 
     def __set_name__(self, owner, name):
         self.name = name
+        if self.name == self.alias:
+            self.alias = None
         self.owner = ref(owner)
 
     def __repr__(self) -> str:
@@ -118,14 +123,19 @@ class Scheme(abc.Mapping):
 
     _fields = frozenset()
     _root = True
+    _aliases = {}
 
     def __init_subclass__(cls, /, root=False, **kwargs):
         super().__init_subclass__(**kwargs)
         _fields = set()
+        _aliases = {}
         for name, value in cls.__dict__.items():
             if isinstance(value, Field):
                 _fields.add(name)
+                if value.alias is not None:
+                    _aliases[value.alias] = name
         cls._fields = frozenset(_fields)
+        cls._aliases = _aliases
         cls._root = root
 
     @classmethod
@@ -153,8 +163,17 @@ class Scheme(abc.Mapping):
                 )
 
         struct = cls()
-        for field in cls._fields:
+
+        done = set()
+
+        for alias, field in cls._aliases.items():
+            if alias in d:
+                struct[field] = d.get(alias)
+                done.add(field)
+
+        for field in cls._fields.difference(done):
             struct[field] = d.get(field)
+
         return struct
 
     @classmethod
@@ -166,7 +185,9 @@ class Scheme(abc.Mapping):
 
     @classmethod
     def coverage(cls, keys: set) -> int:
-        return len(cls._fields.intersection(keys))
+        fields = len(cls._fields.intersection(keys))
+        aliases = len(set(cls._aliases.keys()).intersection(keys))
+        return fields + aliases
 
     def json_dumps(self, **kwargs) -> str:
         return json.dumps(self.as_dict(), **kwargs)
