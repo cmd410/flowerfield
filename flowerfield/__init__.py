@@ -1,10 +1,11 @@
 import json
 from weakref import ref
-from typing import Mapping, Sequence, List, Callable, Optional
+from typing import (Mapping, Sequence, List,
+                    Callable, Optional, Union)
 from collections import abc
 
 
-__version__ = '0.3.0'
+__version__ = '0.3.1'
 
 
 class SchemaError(RuntimeError):
@@ -196,18 +197,33 @@ class Scheme(abc.Mapping):
         return json.dump(self.as_dict(), fp, **kwargs)
 
     @classmethod
-    def json_loads(cls, json_string: str) -> 'Scheme':
-        data = json.loads(json_string)
-        if isinstance(data, dict):
+    def from_data(cls,
+                  data: Union[List, Mapping]
+                  ) -> Union['Scheme', List['Scheme']]:
+        if isinstance(data, Mapping):
             return cls.from_dict(data)
-        elif isinstance(data, list):
+        elif isinstance(data, List):
             return cls.from_list(data)
         else:
             raise SchemaError(f'Cannot create Strucutre from {repr(data)}')
 
+    @classmethod
+    def json_loads(cls, json_string: str) -> Union['Scheme', List['Scheme']]:
+        return cls.from_data(json.loads(json_string))
+
+    @classmethod
+    def json_load(cls, fp) -> Union['Scheme', List['Scheme']]:
+        return cls.from_data(json.load(fp))
+
     def as_dict(self):
         d = {}
-        for key in self._fields:
+        done = set()
+
+        for alias, field in self._aliases.items():
+            d[alias] = getattr(self, field)
+            done.add(field)
+
+        for key in self._fields.difference(done):
             value = getattr(self, key)
             if isinstance(value, Scheme):
                 value = value.as_dict()
@@ -225,24 +241,32 @@ class Scheme(abc.Mapping):
         return s + ')'
 
     def __getitem__(self, key):
+        if key in self._aliases:
+            key = self._aliases[key]
         if key not in self._fields:
             raise KeyError(f'{self.__class__.__name__} has no field \"{key}\"')
         return getattr(self, key)
 
     def __setitem__(self, key, value):
+        if key in self._aliases:
+            key = self._aliases[key]
         if key not in self._fields:
             raise KeyError(f'{self.__class__.__name__} has no field \"{key}\"')
         return setattr(self, key, value)
 
     def __iter__(self):
-        for i in self._fields:
+        done = set()
+        for alias, field in self._aliases.items():
+            yield alias
+            done.add(field)
+        for i in self._fields.difference(done):
             yield i
 
     def __len__(self):
         return len(self._fields)
 
     def __contains__(self, key):
-        return key in self._fields
+        return key in self._fields or key in self._aliases
 
     def keys(self):
         return self._fields
