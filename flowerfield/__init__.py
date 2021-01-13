@@ -5,7 +5,18 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.4.1'
+__version__ = '0.5.0'
+
+__all__ = [
+    'SchemaError',
+    'FieldTypeError',
+    'FieldValidationError',
+    'UnknownSchemeName',
+    'Field',
+    'OptionalField',
+    'ListField',
+    'Scheme'
+]
 
 
 class SchemaError(RuntimeError):
@@ -114,6 +125,16 @@ class Field:
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(name={self.name}, type={self.type})'
+
+
+class OptionalField(Field):
+    def __init__(self,
+                 *args,
+                 alias: Optional[str] = None,
+                 validator: Optional[Callable] = None
+                 ):
+        super().__init__(*args, alias=alias, validator=validator)
+        self.type = self.type + (type(None),)
 
 
 class ListField(Field):
