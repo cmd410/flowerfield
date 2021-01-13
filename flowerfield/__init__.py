@@ -5,7 +5,7 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.4.0'
+__version__ = '0.4.1'
 
 
 class SchemaError(RuntimeError):
@@ -92,7 +92,7 @@ class Field:
     def __set__(self, obj, value):
         if obj is None:
             return
-        if not self.type:
+        if not self.type and not self._scheme_names:
             self.set_value(obj, value)
         elif isinstance(value, self.type):
             self.set_value(obj, value)
