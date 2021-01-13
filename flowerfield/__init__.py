@@ -5,7 +5,7 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.3.1'
+__version__ = '0.4.0'
 
 
 class SchemaError(RuntimeError):
@@ -20,11 +20,18 @@ class FieldValidationError(SchemaError):
     pass
 
 
+class UnknownSchemeName(SchemaError):
+    pass
+
+
+_schemes_map = {}
+
+
 class Field:
 
     __slots__ = (
         'type', 'name', 'is_struct',
-        'owner', 'validator', 'alias'
+        'owner', 'validator', 'alias', '_scheme_names'
     )
 
     def __init__(self,
@@ -32,9 +39,17 @@ class Field:
                  alias: Optional[str] = None,
                  validator: Optional[Callable] = None
                  ):
-        self.type = args
+        self._scheme_names = []
+        types = []
+        for i in args:
+            if isinstance(i, str):
+                self._scheme_names.append(i)
+            else:
+                types.append(i)
+        self.type = tuple(types)
         self.validator = validator
-        self.is_struct = any([issubclass(i, Scheme) for i in self.type])
+        self.is_struct = (any([issubclass(i, Scheme) for i in self.type])
+                          or self._scheme_names)
         self.name = None
         self.alias = alias
 
@@ -50,6 +65,11 @@ class Field:
             if not issubclass(i, Scheme):
                 continue
             struct_map[i.coverage(set(value.keys()))] = i
+        for i in self._scheme_names:
+            cls = _schemes_map.get(i)
+            if cls is None:
+                raise UnknownSchemeName(i)
+            struct_map[cls.coverage(set(value.keys()))] = cls
         return struct_map[max(struct_map.keys())]
 
     def validate(self, obj):
@@ -138,6 +158,7 @@ class Scheme(abc.Mapping):
         cls._fields = frozenset(_fields)
         cls._aliases = _aliases
         cls._root = root
+        _schemes_map[cls.__name__] = cls
 
     @classmethod
     def from_dict(cls, d: Mapping) -> 'Scheme':
