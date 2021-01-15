@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Fix not forwarding leave_none in as_dict
+
 ## 0.6.0
 
 - `as_dict` now has optional `leave_none` boolean parameter to allow field with None as value to be in output, False by default

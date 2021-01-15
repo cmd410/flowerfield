@@ -5,7 +5,7 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.6.0'
+__version__ = '0.6.1'
 
 __all__ = [
     'SchemaError',
@@ -268,7 +268,7 @@ class Scheme(abc.Mapping):
             if value is not None or leave_none:
                 key = aliases.get(key, key)
                 if isinstance(value, Scheme):
-                    value = value.as_dict()
+                    value = value.as_dict(leave_none)
                 d[key] = value
         return d
 
