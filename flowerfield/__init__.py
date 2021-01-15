@@ -1,11 +1,12 @@
 import json
 from weakref import ref
 from typing import (Mapping, Sequence, List,
-                    Callable, Optional, Union)
+                    Callable, Optional, Union,
+                    Tuple)
 from collections import abc
 
 
-__version__ = '0.7.0'
+__version__ = '0.8.0'
 
 __all__ = [
     'SchemaError',
@@ -195,22 +196,30 @@ class Scheme(abc.Mapping):
         _schemes_map[cls.__name__] = cls
 
     @classmethod
+    def get_best_match(cls, keys: set) -> Tuple[int, Optional['Scheme']]:
+        if not cls._root:
+            return (-1, cls)
+
+        best_match = (0, None)
+        for i in cls.__subclasses__():
+
+            if i._root:
+                coverage, i = i.get_best_match(keys)
+            else:
+                coverage = i.coverage(keys)
+
+            if coverage > best_match[0]:
+                best_match = (coverage, i)
+
+        return best_match
+
+    @classmethod
     def from_dict(cls, d: Mapping) -> 'Scheme':
         assert(isinstance(d, Mapping))
 
-        coverage = None
+        coverage, cls = cls.get_best_match(set(d.keys()))
 
-        if cls._root:
-            struct_map = {}
-            for i in cls.__subclasses__():
-                struct_map[i.coverage(set(d.keys()))] = i
-            coverage = max(struct_map.keys())
-            cls = struct_map[coverage]
-
-        if coverage is None:
-            coverage = cls.coverage(set(d.keys()))
-
-        if not coverage:
+        if cls is None:
             raise SchemaError(
                 'Cannot map structure none of the fields match!\n'
                 f'Scheme: {cls.__qualname__}\n'
