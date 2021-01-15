@@ -5,7 +5,7 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.5.1'
+__version__ = '0.6.0'
 
 __all__ = [
     'SchemaError',
@@ -257,7 +257,7 @@ class Scheme(abc.Mapping):
     def json_load(cls, fp) -> Union['Scheme', List['Scheme']]:
         return cls.from_data(json.load(fp))
 
-    def as_dict(self):
+    def as_dict(self, leave_none=False):
         d = {}
         aliases = {
             key: value
@@ -265,10 +265,11 @@ class Scheme(abc.Mapping):
         }
         for key in self._fields:
             value = getattr(self, key)
-            key = aliases.get(key, key)
-            if isinstance(value, Scheme):
-                value = value.as_dict()
-            d[key] = value
+            if value is not None or leave_none:
+                key = aliases.get(key, key)
+                if isinstance(value, Scheme):
+                    value = value.as_dict()
+                d[key] = value
         return d
 
     def __repr__(self):

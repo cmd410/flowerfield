@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+- `as_dict` now has optional `leave_none` boolean parameter to allow field with None as value to be in output, False by default
+
 ## 0.5.1
 
  - Fix not making Scheme field into dict when `as_dict` is called and field is aliased
