@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Fields inheritance and predictable repr
+
 ## 0.6.1
 
 - Fix not forwarding leave_none in as_dict

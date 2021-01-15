@@ -5,7 +5,7 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.6.1'
+__version__ = '0.7.0'
 
 __all__ = [
     'SchemaError',
@@ -171,14 +171,27 @@ class Scheme(abc.Mapping):
         super().__init_subclass__(**kwargs)
         _fields = set()
         _aliases = {}
-        for name, value in cls.__dict__.items():
-            if isinstance(value, Field):
-                _fields.add(name)
-                if value.alias is not None:
-                    _aliases[value.alias] = name
+
+        # Get only parents without std base classes
+        base_class_count = len(Scheme.mro())
+        pure_mro = cls.mro()[:-base_class_count]
+
+        for base in reversed(pure_mro):
+            if not issubclass(base, Scheme):
+                continue
+            for name, value in base.__dict__.items():
+                # if attr was overriden in class dont inherit it
+                if base != cls and name in cls.__dict__:
+                    continue
+                if isinstance(value, Field):
+                    _fields.add(name)
+                    if value.alias is not None:
+                        _aliases[value.alias] = name
+
         cls._fields = frozenset(_fields)
         cls._aliases = _aliases
         cls._root = root
+
         _schemes_map[cls.__name__] = cls
 
     @classmethod
@@ -277,7 +290,7 @@ class Scheme(abc.Mapping):
         s += ', '.join(
             [
                 f'{field}={repr(getattr(self, field))}'
-                for field in self._fields
+                for field in sorted(self._fields)
             ]
         )
         return s + ')'
