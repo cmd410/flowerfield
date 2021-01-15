@@ -5,7 +5,7 @@ from typing import (Mapping, Sequence, List,
 from collections import abc
 
 
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 
 __all__ = [
     'SchemaError',
@@ -259,14 +259,13 @@ class Scheme(abc.Mapping):
 
     def as_dict(self):
         d = {}
-        done = set()
-
-        for alias, field in self._aliases.items():
-            d[alias] = getattr(self, field)
-            done.add(field)
-
-        for key in self._fields.difference(done):
+        aliases = {
+            key: value
+            for value, key in self._aliases.items()
+        }
+        for key in self._fields:
             value = getattr(self, key)
+            key = aliases.get(key, key)
             if isinstance(value, Scheme):
                 value = value.as_dict()
             d[key] = value
