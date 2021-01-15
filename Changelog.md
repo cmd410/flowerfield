@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- Nested roots mapping
+
 ## 0.7.0
 
 - Fields inheritance and predictable repr
